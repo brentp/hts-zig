@@ -1,0 +1,30 @@
+name: Build
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: Run tests on ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, ubuntu-latest]
+    runs-on: ${{matrix.os}}
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+    - uses: goto-bus-stop/setup-zig@v1
+      with:
+        version: 0.8.0
+
+    - name: Install
+      run: |
+        sudo apt-get -qy update
+        sudo apt-get -qy install libcurl4-openssl-dev git
+        git clone --recursive --depth 1 -b 1.14 https://github.com/samtools/htslib
+        cd htslib
+        autoheader && autoconf
+        ./configure --enable-s3 --disable-lzma --disable-bz2
+        sudo make install
+        cd ..
+        zig build test
