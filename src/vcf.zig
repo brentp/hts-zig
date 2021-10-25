@@ -166,7 +166,8 @@ pub const Variant = struct {
     pub fn format(self: Variant, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
         _ = options;
-        try writer.print("Variant({s}:{d}-{d} ({s})", .{ self.CHROM(), self.start(), self.stop(), self.REF() });
+        try writer.print("Variant({s}:{d}-{d} ({s}/{s}))", .{ self.CHROM(),
+self.start(), self.stop(), self.REF(), self.ALT0() });
     }
 
     /// return a string of the variant.

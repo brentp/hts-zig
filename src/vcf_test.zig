@@ -81,12 +81,13 @@ test "format format field extraction" {
     var ivcf = VCF.open("tests/test.snpeff.bcf").?;
     _ = ivcf.next().?;
     var variant = ivcf.next().?;
-    var fld: []const u8 = "AD";
+    var fld = "AD";
     const allocator = std.testing.allocator;
     var ad = try variant.samples(i32, fld, allocator);
     try std.testing.expect(ad.len == 8);
     try std.testing.expect(ad[0] == 7);
     try std.testing.expect(ad[2] == 2);
     try stdout.print("\nAD:{any}\n", .{ad});
+    try stdout.print("\n{any}\n", .{variant});
     allocator.free(ad);
 }
