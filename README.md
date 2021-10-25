@@ -14,6 +14,8 @@ const VCF = @import("src/vcf.zig").VCF
 const allocator = std.testing.allocator;
 
 var vcf = VCF.open("tests/test.snpeff.bcf").?; // can return null
+// this will close the file and cleanup htslib memory at end of scope
+defer vcf.deinit(); 
 var variant = ivcf.next().?;
 try stdout.print("\nvariant:{any}\n", .{variant}); // Variant(chr1:30859-30860 (G/C))
 

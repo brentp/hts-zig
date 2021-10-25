@@ -13,7 +13,7 @@ const hts = @cImport({
 
 /// This stores the `bcf_hdr_t` and provides convenience mthods.
 pub const Header = struct {
-    c: *hts.bcf_hdr_t,
+    c: ?*hts.bcf_hdr_t,
 
     pub fn format(self: Header, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
@@ -66,8 +66,16 @@ fn ret_to_err(
 
 /// This provides access to the fields in a genetic variant.
 pub const Variant = struct {
-    c: *hts.bcf1_t,
+    c: ?*hts.bcf1_t,
     vcf: VCF,
+
+    // deallocate memory (from htslib) for this variant. only needed if this is
+    // a copy of a variant from an iterator.
+    pub fn deinit(self: Variant) void {
+        if(self.c != null) {
+            hts.bcf_destroy(self.c);
+        }
+    }
 
     /// the 0-based start position of the variant
     pub fn start(self: Variant) i64 {
@@ -189,10 +197,10 @@ self.start(), self.stop(), self.REF(), self.ALT0() });
 /// Represents the variant (bcf or vcf) file.
 /// has several convenience methods such as query and iteration.
 pub const VCF = struct {
-    hts: *hts.htsFile,
+    hts: ?*hts.htsFile,
     fname: []const u8,
     header: Header,
-    variant_c: *hts.bcf1_t,
+    variant_c: ?*hts.bcf1_t,
 
     /// open a vcf for reading from the given path
     pub fn open(path: []const u8) ?VCF {
@@ -217,6 +225,19 @@ pub const VCF = struct {
             return null;
         }
         _ = hts.bcf_unpack(self.variant_c, 3);
-        return Variant{ .c = self.variant_c, .vcf = self };
+        return Variant{ .c = self.variant_c.?, .vcf = self };
+    }
+
+    pub fn deinit(self: VCF) void {
+      if(self.header.c != null) {
+          hts.bcf_hdr_destroy(self.header.c.?);
+      }
+      if(self.variant_c != null) {
+          hts.bcf_destroy(self.variant_c.?);
+      }
+      if(self.hts != null and !std.mem.eql(u8, self.fname, "-") and !std.mem.eql(u8, self.fname, "/dev/stdin")) {
+          _ = hts.hts_close(self.hts);
+      }
+
     }
 };

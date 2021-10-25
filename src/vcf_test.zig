@@ -8,6 +8,7 @@ const fname = "tests/exac.bcf";
 
 test "that vcf open works" {
     var ivcf = VCF.open(fname);
+    defer ivcf.?.deinit();
     try std.testing.expect(ivcf != null);
 }
 
@@ -15,6 +16,7 @@ test "that header to string works" {
     const allocator = std.testing.allocator;
 
     var ivcf = VCF.open("tests/exac.bcf").?;
+    defer ivcf.deinit();
     var h = ivcf.header.tostring(allocator);
     try std.testing.expect(h != null);
     try std.testing.expect(std.mem.indexOf(u8, h.?, "#CHROM") != null);
@@ -26,6 +28,7 @@ test "that variant to string works" {
     const allocator = std.testing.allocator;
 
     var ivcf = VCF.open("tests/exac.bcf").?;
+    defer ivcf.deinit();
     var variant = ivcf.next().?;
     var s = variant.tostring(allocator);
     try std.testing.expect(s != null);
@@ -36,6 +39,7 @@ test "that variant to string works" {
 
 test "that variant attributes work" {
     var ivcf = VCF.open("tests/exac.bcf").?;
+    defer ivcf.deinit();
     var variant = ivcf.next().?;
     try std.testing.expect(std.mem.eql(u8, variant.CHROM(), "1"));
     try std.testing.expect(std.mem.eql(u8, variant.REF(), "G"));
@@ -49,6 +53,7 @@ test "that variant attributes work" {
 
 test "info AC int" {
     var ivcf = VCF.open("tests/exac.bcf").?;
+    defer ivcf.deinit();
     var variant = ivcf.next().?;
     var fld: []const u8 = "AC";
     const allocator = std.testing.allocator;
@@ -60,6 +65,7 @@ test "info AC int" {
 
 test "info AC float" {
     var ivcf = VCF.open("tests/exac.bcf").?;
+    defer ivcf.deinit();
     var variant = ivcf.next().?;
     var fld: []const u8 = "AF";
     const allocator = std.testing.allocator;
@@ -71,6 +77,7 @@ test "info AC float" {
 
 test "missing INFO field gives undefined tag" {
     var ivcf = VCF.open("tests/exac.bcf").?;
+    defer ivcf.deinit();
     var variant = ivcf.next().?;
     var fld: []const u8 = "MISSING_AC";
     const allocator = std.testing.allocator;
@@ -79,6 +86,7 @@ test "missing INFO field gives undefined tag" {
 
 test "format format field extraction" {
     var ivcf = VCF.open("tests/test.snpeff.bcf").?;
+    defer ivcf.deinit();
     _ = ivcf.next().?;
     var variant = ivcf.next().?;
     var fld = "AD";
