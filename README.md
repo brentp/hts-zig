@@ -21,7 +21,6 @@ try stdout.print("\nvariant:{any}\n", .{variant}); // Variant(chr1:30859-30860 (
 var fld = "AD";
 
 // needs to allocate, this interface will likely change.
-
 // extract the FORMAT/sample AD field (allelic depth)
 var ad = try variant.samples(i32, fld, allocator);
 // 4 samples * 2
