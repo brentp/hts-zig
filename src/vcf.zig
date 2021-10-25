@@ -46,6 +46,24 @@ pub const HTSError = error{
     UnknownError,
 };
 
+fn ret_to_err(
+    ret: c_int,
+    attr_name: []const u8,
+) HTSError {
+    const retval = switch (ret) {
+        -10 => HTSError.IncorrectNumberOfValues,
+        -3 => HTSError.NotFound,
+        -2 => HTSError.UnexpectedType,
+        -1 => HTSError.UndefinedTag,
+        else => {
+            const stderr = std.io.getStdErr().writer();
+            stderr.print("[zig-hts/vcf] unknown return in info({s})\n", .{attr_name}) catch {};
+            return HTSError.UnknownError;
+        },
+    };
+    return retval;
+}
+
 /// This provides access to the fields in a genetic variant.
 pub const Variant = struct {
     c: *hts.bcf1_t,
@@ -111,18 +129,31 @@ pub const Variant = struct {
 
         var ret = hts.bcf_get_info_values(self.vcf.header.c, self.c, &(field_name[0]), &c_void_ptr, &n, typs[0]);
         if (ret < 0) {
-            const retval = switch (ret) {
-                -10 => HTSError.IncorrectNumberOfValues,
-                -3 => HTSError.NotFound,
-                -2 => HTSError.UnexpectedType,
-                -1 => HTSError.UndefinedTag,
-                else => {
-                    const stderr = std.io.getStdErr().writer();
-                    try stderr.print("[zig-hts/vcf] unknown return in info({s})\n", .{field_name});
-                    return HTSError.UnknownError;
-                },
-            };
-            return retval;
+            return ret_to_err(ret, field_name);
+        }
+        // typs[1] is i32 or f32
+        var casted = @ptrCast([*c]u8, @alignCast(@alignOf(typs[1]), c_void_ptr));
+        var data = try allocator.alloc(typs[1], @intCast(usize, n));
+        @memcpy(@ptrCast([*]u8, data), casted, @intCast(usize, n * @sizeOf(typs[1])));
+        return data;
+    }
+
+    /// access float or int (T of i32 or f32) in the format field
+    /// user is responsible for freeing the returned value.
+    pub fn samples(self: Variant, comptime T: type, field_name: []const u8, allocator: *std.mem.Allocator) ![]T {
+        _ = hts.bcf_unpack(self.c, hts.BCF_UN_FMT);
+        var c_void_ptr: ?*c_void = null;
+
+        var n: c_int = 0;
+        var typs = switch (@typeInfo(T)) {
+            .ComptimeInt, .Int => .{ hts.BCF_HT_INT, i32 },
+            .ComptimeFloat, .Float => .{ hts.BCF_HT_REAL, f32 },
+            else => @compileError("only ints (i32, i64) and floats accepted to info()"),
+        };
+
+        var ret = hts.bcf_get_format_values(self.vcf.header.c, self.c, &(field_name[0]), &c_void_ptr, &n, typs[0]);
+        if (ret < 0) {
+            return ret_to_err(ret, field_name);
         }
         // typs[1] is i32 or f32
         var casted = @ptrCast([*c]u8, @alignCast(@alignOf(typs[1]), c_void_ptr));
