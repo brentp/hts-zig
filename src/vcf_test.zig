@@ -2,17 +2,19 @@ const vcf = @import("vcf.zig");
 const std = @import("std");
 const stdout = std.io.getStdOut().writer();
 
+const VCF = vcf.VCF;
+
 const fname = "tests/exac.bcf";
 
 test "that vcf open works" {
-    var ivcf = vcf.VCF.open(fname);
+    var ivcf = VCF.open(fname);
     try std.testing.expect(ivcf != null);
 }
 
 test "that header to string works" {
     const allocator = std.testing.allocator;
 
-    var ivcf = vcf.VCF.open("tests/exac.bcf").?;
+    var ivcf = VCF.open("tests/exac.bcf").?;
     var h = ivcf.header.tostring(allocator);
     try std.testing.expect(h != null);
     try std.testing.expect(std.mem.indexOf(u8, h.?, "#CHROM") != null);
@@ -23,7 +25,7 @@ test "that header to string works" {
 test "that variant to string works" {
     const allocator = std.testing.allocator;
 
-    var ivcf = vcf.VCF.open("tests/exac.bcf").?;
+    var ivcf = VCF.open("tests/exac.bcf").?;
     var variant = ivcf.next().?;
     var s = variant.tostring(allocator);
     try std.testing.expect(s != null);
@@ -33,7 +35,7 @@ test "that variant to string works" {
 }
 
 test "that variant attributes work" {
-    var ivcf = vcf.VCF.open("tests/exac.bcf").?;
+    var ivcf = VCF.open("tests/exac.bcf").?;
     var variant = ivcf.next().?;
     try std.testing.expect(std.mem.eql(u8, variant.CHROM(), "1"));
     try std.testing.expect(std.mem.eql(u8, variant.REF(), "G"));
@@ -46,7 +48,7 @@ test "that variant attributes work" {
 }
 
 test "info AC int" {
-    var ivcf = vcf.VCF.open("tests/exac.bcf").?;
+    var ivcf = VCF.open("tests/exac.bcf").?;
     var variant = ivcf.next().?;
     var fld: []const u8 = "AC";
     const allocator = std.testing.allocator;
@@ -57,7 +59,7 @@ test "info AC int" {
 }
 
 test "info AC float" {
-    var ivcf = vcf.VCF.open("tests/exac.bcf").?;
+    var ivcf = VCF.open("tests/exac.bcf").?;
     var variant = ivcf.next().?;
     var fld: []const u8 = "AF";
     const allocator = std.testing.allocator;
@@ -68,9 +70,23 @@ test "info AC float" {
 }
 
 test "missing INFO field gives undefined tag" {
-    var ivcf = vcf.VCF.open("tests/exac.bcf").?;
+    var ivcf = VCF.open("tests/exac.bcf").?;
     var variant = ivcf.next().?;
     var fld: []const u8 = "MISSING_AC";
     const allocator = std.testing.allocator;
     try std.testing.expectError(vcf.HTSError.UndefinedTag, variant.info(i32, fld, allocator));
+}
+
+test "format format field extraction" {
+    var ivcf = VCF.open("tests/test.snpeff.bcf").?;
+    _ = ivcf.next().?;
+    var variant = ivcf.next().?;
+    var fld: []const u8 = "AD";
+    const allocator = std.testing.allocator;
+    var ad = try variant.samples(i32, fld, allocator);
+    try std.testing.expect(ad.len == 8);
+    try std.testing.expect(ad[0] == 7);
+    try std.testing.expect(ad[2] == 2);
+    try stdout.print("\nAD:{any}\n", .{ad});
+    allocator.free(ad);
 }

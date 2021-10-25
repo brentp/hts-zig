@@ -141,6 +141,7 @@ pub const Variant = struct {
     /// access float or int (T of i32 or f32) in the format field
     /// user is responsible for freeing the returned value.
     pub fn samples(self: Variant, comptime T: type, field_name: []const u8, allocator: *std.mem.Allocator) ![]T {
+        // TODO: this is exact same code as info() except the call to // bcf.get_{info,format}_values
         _ = hts.bcf_unpack(self.c, hts.BCF_UN_FMT);
         var c_void_ptr: ?*c_void = null;
 
