@@ -70,6 +70,13 @@ pub const InfoOrFmt = enum {
     format,
 };
 
+inline fn allele_value(val: i32) i32 {
+    if (val < 0) {
+        return val;
+    }
+    return (val >> 1) - 1;
+}
+
 pub const Allele = struct {
     val: i32,
 
@@ -103,7 +110,7 @@ pub const Allele = struct {
     }
 };
 
-// A genotype is simply a sequence of alleles.
+// A genotype is a sequence of alleles.
 pub const Genotype = struct {
     alleles: []i32,
     pub fn format(self: Genotype, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
@@ -118,16 +125,17 @@ pub const Genotypes = struct {
     gts: []i32,
     ploidy: i32,
 
-    pub fn at(self: Genotypes, i: i32) Genotype {
+    pub inline fn at(self: Genotypes, i: i32) Genotype {
         var sub = self.gts[@intCast(usize, i * self.ploidy)..@intCast(usize, (i + 1) * self.ploidy)];
         return Genotype{ .alleles = sub };
     }
+
     pub fn format(self: Genotypes, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
         _ = options;
 
-        var i: i32 = 0;
         try writer.writeAll("[");
+        var i: i32 = 0;
         while (i * self.ploidy < self.gts.len - 1) {
             try (self.at(i)).format(fmt, options, writer);
             i += 1;
@@ -136,6 +144,30 @@ pub const Genotypes = struct {
             }
         }
         try writer.writeAll("]");
+    }
+    /// the number of alternate alleles in the genotype.
+    /// for bi-allelics can think of 0 => hom-ref, 1 => het, 2=> hom-alt, -1 =>unknown
+    /// ./1 == 1
+    /// 0/. == 0
+    /// ./. -> -1
+    ///  1/1 -> 2
+    ///  1/1/1 -> 3
+    pub fn alts(self: Genotypes, allocator: *std.mem.Allocator) ![]i8 {
+        var n_samples: i32 = @divTrunc(@intCast(i32, self.gts.len), self.ploidy);
+        var data = try allocator.alloc(i8, @intCast(usize, n_samples));
+        var i: usize = 0;
+        while (i < n_samples) {
+            var j: usize = 0;
+            data[i] = 0;
+            while (j < self.ploidy) {
+                var val = allele_value(self.gts[@intCast(usize, i * @intCast(usize, self.ploidy) + j)]);
+                data[i] += @intCast(i8, val);
+                j += 1;
+            }
+            data[i] = @maximum(data[i], -1);
+            i += 1;
+        }
+        return data;
     }
 };
 

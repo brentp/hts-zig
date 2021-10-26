@@ -124,6 +124,9 @@ test "get genotypes" {
 
     try stdout.print("\ngts:{any}\n", .{gts});
     try stdout.print("\ngts.at(2):{any}\n", .{gts.at(2)});
+    var alts = try gts.alts(allocator);
+    try stdout.print("\nalts:{any}\n", .{alts});
 
     allocator.free(gts.gts);
+    allocator.free(alts);
 }
