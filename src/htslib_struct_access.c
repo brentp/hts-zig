@@ -30,6 +30,14 @@ char *variant_flt0(bcf1_t *b, bcf_hdr_t *h) {
   return bcf_hdr_int2id(h, BCF_DT_ID, b->d.flt[0]);
 }
 
+int32_t variant_n_samples(bcf1_t *b) {
+	return b->n_sample;
+}
+
+int32_t header_n_samples(bcf_hdr_t *h) {
+	return bcf_hdr_nsamples(h);
+}
+
 BGZF *fp_bgzf(htsFile *h) {
   return h->fp.bgzf;
 }

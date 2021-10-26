@@ -10,6 +10,10 @@ int64_t variant_rlen(bcf1_t *b);
 char *variant_REF(bcf1_t *b);
 char *variant_ALT(bcf1_t *b, int32_t i);
 
+int32_t variant_n_samples(bcf1_t *b);
+int32_t header_n_samples(bcf_hdr_t *h);
+
+
 float variant_QUAL(bcf1_t *b);
 int variant_nflt(bcf1_t *b);
 char *variant_flt0(bcf1_t *b, bcf_hdr_t *h);

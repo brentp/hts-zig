@@ -87,16 +87,16 @@ pub const Allele = struct {
         const v = self.value();
         if (v < 0) {
             if (self.val == 0) {
-                try writer.print("./");
+                try writer.writeAll("./");
             } else {
-                try writer.print("$");
+                try writer.writeAll("$");
             }
         } else {
             try writer.print("{d}", .{v});
             if (self.phased()) {
-                writer.writeAll("|");
+                try writer.writeAll("|");
             } else {
-                writer.writeAll("/");
+                try writer.writeAll("/");
             }
         }
     }
@@ -104,11 +104,19 @@ pub const Allele = struct {
 
 // A genotype is simply a sequence of alleles.
 pub const Genotype = struct {
-    alleles: []Allele,
+    alleles: []i32,
 };
 
 /// These are the int32 values used by htslib internally.
-pub const Genotypes = struct { gts: []i32, ploidy: i32 };
+pub const Genotypes = struct {
+    gts: []i32,
+    ploidy: i32,
+
+    pub fn at(self: Genotypes, i: i32) Genotype {
+        var sub = self.gts[@intCast(usize, i * self.ploidy)..@intCast(usize, (i + 1) * self.ploidy)];
+        return Genotype{ .alleles = sub };
+    }
+};
 
 /// This provides access to the fields in a genetic variant.
 pub const Variant = struct {
@@ -204,11 +212,16 @@ pub const Variant = struct {
         return data;
     }
 
+    /// number of samples in the variant
+    pub inline fn n_samples(self: Variant) i32 {
+        return hts.variant_n_samples(self.c);
+    }
+
     /// Get the genotypes from the GT field for all samples. This allocates
     //memory that the user is expected to free.
     pub fn genotypes(self: Variant, allocator: *std.mem.Allocator) !Genotypes {
         const gts = try self.get(InfoOrFmt.format, i32, "GT", allocator);
-        return Genotypes{ .gts = gts, .ploidy = 2 };
+        return Genotypes{ .gts = gts, .ploidy = @floatToInt(i32, @intToFloat(f32, gts.len) / @intToFloat(f32, self.n_samples())) };
     }
 
     pub fn format(self: Variant, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
@@ -254,6 +267,11 @@ pub const VCF = struct {
     /// set the number of decompression threads
     pub fn set_threads(self: VCF, threads: i32) void {
         hts.hts_set_threads(self.hts, @as(c_int, threads));
+    }
+
+    /// number of samples in the VCF
+    pub inline fn n_samples(self: VCF) i32 {
+        return hts.header_n_samples(self.header.c);
     }
 
     // a zig iterator over variants in the file.

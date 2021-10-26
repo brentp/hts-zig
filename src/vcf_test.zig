@@ -94,6 +94,15 @@ test "format format field extraction" {
     allocator.free(ad);
 }
 
+test "n_samples" {
+    var gvcf = VCF.open("tests/test.snpeff.bcf").?;
+    defer gvcf.deinit();
+    _ = gvcf.next().?;
+    var gvariant = gvcf.next().?;
+    try std.testing.expect(gvariant.n_samples() == 4);
+    try std.testing.expect(gvcf.n_samples() == 4);
+}
+
 test "get genotypes" {
     var ivcf = VCF.open("tests/test.snpeff.bcf").?;
     defer ivcf.deinit();
@@ -101,5 +110,19 @@ test "get genotypes" {
     var variant = ivcf.next().?;
     var gts = try variant.genotypes(allocator);
     try std.testing.expect(gts.gts.len == 8);
+    try std.testing.expect(gts.ploidy == 2);
+    allocator.free(gts.gts);
+}
+
+test "get genotypes" {
+    var ivcf = VCF.open("tests/test.snpeff.bcf").?;
+    defer ivcf.deinit();
+    _ = ivcf.next().?;
+    var variant = ivcf.next().?;
+    var gts = try variant.genotypes(allocator);
+
+    try stdout.print("\ngts:{any}\n", .{gts});
+    try stdout.print("\ngts.at(0):{any}\n", .{gts.at(0)});
+
     allocator.free(gts.gts);
 }
