@@ -64,6 +64,11 @@ fn ret_to_err(
     return retval;
 }
 
+pub const InfoOrFmt = enum {
+    info,
+    format,
+};
+
 /// This provides access to the fields in a genetic variant.
 pub const Variant = struct {
     c: ?*hts.bcf1_t,
@@ -72,7 +77,7 @@ pub const Variant = struct {
     // deallocate memory (from htslib) for this variant. only needed if this is
     // a copy of a variant from an iterator.
     pub fn deinit(self: Variant) void {
-        if(self.c != null) {
+        if (self.c != null) {
             hts.bcf_destroy(self.c);
         }
     }
@@ -122,45 +127,30 @@ pub const Variant = struct {
         return hts.variant_QUAL(self.c);
     }
 
-    /// access float or int (T of i32 or f32) in the info field
+    /// access float or int (T of i32 or f32) in the info or format field
     /// user is responsible for freeing the returned value.
-    pub fn info(self: Variant, comptime T: type, field_name: []const u8, allocator: *std.mem.Allocator) ![]T {
-        _ = hts.bcf_unpack(self.c, hts.BCF_UN_INFO);
+    pub fn get(self: Variant, is: InfoOrFmt, comptime T: type, field_name: []const u8, allocator: *std.mem.Allocator) ![]T {
         var c_void_ptr: ?*c_void = null;
+
+        var func = switch (is) {
+            InfoOrFmt.info => blk_info: {
+                _ = hts.bcf_unpack(self.c, hts.BCF_UN_INFO);
+                break :blk_info hts.bcf_get_info_values;
+            },
+            InfoOrFmt.format => blk_fmt: {
+                _ = hts.bcf_unpack(self.c, hts.BCF_UN_FMT);
+                break :blk_fmt hts.bcf_get_format_values;
+            },
+        };
 
         var n: c_int = 0;
         var typs = switch (@typeInfo(T)) {
             .ComptimeInt, .Int => .{ hts.BCF_HT_INT, i32 },
             .ComptimeFloat, .Float => .{ hts.BCF_HT_REAL, f32 },
-            else => @compileError("only ints (i32, i64) and floats accepted to info()"),
+            else => @compileError("only ints (i32, i64) and floats accepted to get()"),
         };
 
-        var ret = hts.bcf_get_info_values(self.vcf.header.c, self.c, &(field_name[0]), &c_void_ptr, &n, typs[0]);
-        if (ret < 0) {
-            return ret_to_err(ret, field_name);
-        }
-        // typs[1] is i32 or f32
-        var casted = @ptrCast([*c]u8, @alignCast(@alignOf(typs[1]), c_void_ptr));
-        var data = try allocator.alloc(typs[1], @intCast(usize, n));
-        @memcpy(@ptrCast([*]u8, data), casted, @intCast(usize, n * @sizeOf(typs[1])));
-        return data;
-    }
-
-    /// access float or int (T of i32 or f32) in the format field
-    /// user is responsible for freeing the returned value.
-    pub fn samples(self: Variant, comptime T: type, field_name: []const u8, allocator: *std.mem.Allocator) ![]T {
-        // TODO: this is exact same code as info() except the call to // bcf.get_{info,format}_values
-        _ = hts.bcf_unpack(self.c, hts.BCF_UN_FMT);
-        var c_void_ptr: ?*c_void = null;
-
-        var n: c_int = 0;
-        var typs = switch (@typeInfo(T)) {
-            .ComptimeInt, .Int => .{ hts.BCF_HT_INT, i32 },
-            .ComptimeFloat, .Float => .{ hts.BCF_HT_REAL, f32 },
-            else => @compileError("only ints (i32, i64) and floats accepted to info()"),
-        };
-
-        var ret = hts.bcf_get_format_values(self.vcf.header.c, self.c, &(field_name[0]), &c_void_ptr, &n, typs[0]);
+        var ret = func(self.vcf.header.c, self.c, &(field_name[0]), &c_void_ptr, &n, typs[0]);
         if (ret < 0) {
             return ret_to_err(ret, field_name);
         }
@@ -174,8 +164,7 @@ pub const Variant = struct {
     pub fn format(self: Variant, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
         _ = options;
-        try writer.print("Variant({s}:{d}-{d} ({s}/{s}))", .{ self.CHROM(),
-self.start(), self.stop(), self.REF(), self.ALT0() });
+        try writer.print("Variant({s}:{d}-{d} ({s}/{s}))", .{ self.CHROM(), self.start(), self.stop(), self.REF(), self.ALT0() });
     }
 
     /// return a string of the variant.
@@ -229,15 +218,14 @@ pub const VCF = struct {
     }
 
     pub fn deinit(self: VCF) void {
-      if(self.header.c != null) {
-          hts.bcf_hdr_destroy(self.header.c.?);
-      }
-      if(self.variant_c != null) {
-          hts.bcf_destroy(self.variant_c.?);
-      }
-      if(self.hts != null and !std.mem.eql(u8, self.fname, "-") and !std.mem.eql(u8, self.fname, "/dev/stdin")) {
-          _ = hts.hts_close(self.hts);
-      }
-
+        if (self.header.c != null) {
+            hts.bcf_hdr_destroy(self.header.c.?);
+        }
+        if (self.variant_c != null) {
+            hts.bcf_destroy(self.variant_c.?);
+        }
+        if (self.hts != null and !std.mem.eql(u8, self.fname, "-") and !std.mem.eql(u8, self.fname, "/dev/stdin")) {
+            _ = hts.hts_close(self.hts);
+        }
     }
 };
