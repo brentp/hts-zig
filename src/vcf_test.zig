@@ -118,11 +118,12 @@ test "get genotypes" {
     var ivcf = VCF.open("tests/test.snpeff.bcf").?;
     defer ivcf.deinit();
     _ = ivcf.next().?;
+    _ = ivcf.next().?;
     var variant = ivcf.next().?;
     var gts = try variant.genotypes(allocator);
 
     try stdout.print("\ngts:{any}\n", .{gts});
-    try stdout.print("\ngts.at(0):{any}\n", .{gts.at(0)});
+    try stdout.print("\ngts.at(2):{any}\n", .{gts.at(2)});
 
     allocator.free(gts.gts);
 }

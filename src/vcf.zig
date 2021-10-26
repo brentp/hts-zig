@@ -3,6 +3,7 @@
 
 const std = @import("std");
 const testing = std.testing;
+const stdout = std.io.getStdOut().writer();
 
 const hts = @cImport({
     @cInclude("htslib_struct_access.h");
@@ -105,6 +106,11 @@ pub const Allele = struct {
 // A genotype is simply a sequence of alleles.
 pub const Genotype = struct {
     alleles: []i32,
+    pub fn format(self: Genotype, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        for (self.alleles) |allele| {
+            try (Allele{ .val = allele }).format(fmt, options, writer);
+        }
+    }
 };
 
 /// These are the int32 values used by htslib internally.
@@ -115,6 +121,21 @@ pub const Genotypes = struct {
     pub fn at(self: Genotypes, i: i32) Genotype {
         var sub = self.gts[@intCast(usize, i * self.ploidy)..@intCast(usize, (i + 1) * self.ploidy)];
         return Genotype{ .alleles = sub };
+    }
+    pub fn format(self: Genotypes, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+
+        var i: i32 = 0;
+        try writer.writeAll("[");
+        while (i * self.ploidy < self.gts.len - 1) {
+            try (self.at(i)).format(fmt, options, writer);
+            i += 1;
+            if (i * self.ploidy < self.gts.len) {
+                try writer.writeAll(", ");
+            }
+        }
+        try writer.writeAll("]");
     }
 };
 
