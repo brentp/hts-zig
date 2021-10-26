@@ -10,7 +10,10 @@ implemented the rest is fairly mechanical.
 # Usage
 
 ```zig
-const VCF = @import("src/vcf.zig").VCF
+const vcf = @import("src/vcf.zig")
+const VCF = vcf.VCF
+const InfoOrFmt = vcf.InfoOrFmt;
+
 const allocator = std.testing.allocator;
 
 var vcf = VCF.open("tests/test.snpeff.bcf").?; // can return null
@@ -24,7 +27,8 @@ var fld = "AD";
 
 // needs to allocate, this interface will likely change.
 // extract the FORMAT/sample AD field (allelic depth)
-var ad = try variant.samples(i32, fld, allocator);
+// to get INFO, use get(InfoOrFmt.info, ...);
+var ad = try variant.get(InfoOrFmt.format, i32, fld, allocator);
 // 4 samples * 2
 try std.testing.expect(ad.len == 8);
 try stdout.print("\nAD:{any}\n", .{ad}); // { 7, 0, 2, 0, 6, 0, 4, 0 }
