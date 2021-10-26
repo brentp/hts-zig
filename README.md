@@ -47,6 +47,7 @@ zig build test
 
 # TODO (maybe)
 
++ Add nice genotypes access methods/structs
 + Add `vcf.query()` (currently only iteration from start of file is supported,
   not querying by genomic location.
 + writing. currently everything is read-only.
@@ -56,4 +57,4 @@ zig build test
 # Why?
 
 I find that it's quite useful to learn a new language by writing something that
-I'll use every day. I think zig looks interesting and sane
+I'll use every day. zig looks interesting and sane
