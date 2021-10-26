@@ -69,6 +69,47 @@ pub const InfoOrFmt = enum {
     format,
 };
 
+pub const Allele = struct {
+    val: i32,
+
+    pub inline fn phased(a: Allele) bool {
+        return (a.val & 1) == 1;
+    }
+    pub inline fn value(a: Allele) i32 {
+        if (a.val < 0) {
+            return a.val;
+        }
+        return (a.val >> 1) - 1;
+    }
+    pub fn format(self: Allele, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+        const v = self.value();
+        if (v < 0) {
+            if (self.val == 0) {
+                try writer.print("./");
+            } else {
+                try writer.print("$");
+            }
+        } else {
+            try writer.print("{d}", .{v});
+            if (self.phased()) {
+                writer.writeAll("|");
+            } else {
+                writer.writeAll("/");
+            }
+        }
+    }
+};
+
+// A genotype is simply a sequence of alleles.
+pub const Genotype = struct {
+    alleles: []Allele,
+};
+
+/// These are the int32 values used by htslib internally.
+pub const Genotypes = struct { gts: []i32, ploidy: i32 };
+
 /// This provides access to the fields in a genetic variant.
 pub const Variant = struct {
     c: ?*hts.bcf1_t,
@@ -161,6 +202,13 @@ pub const Variant = struct {
         var data = try allocator.alloc(typs[1], @intCast(usize, n));
         @memcpy(@ptrCast([*]u8, data), casted, @intCast(usize, n * @sizeOf(typs[1])));
         return data;
+    }
+
+    /// Get the genotypes from the GT field for all samples. This allocates
+    //memory that the user is expected to free.
+    pub fn genotypes(self: Variant, allocator: *std.mem.Allocator) !Genotypes {
+        const gts = try self.get(InfoOrFmt.format, i32, "GT", allocator);
+        return Genotypes{ .gts = gts, .ploidy = 2 };
     }
 
     pub fn format(self: Variant, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {

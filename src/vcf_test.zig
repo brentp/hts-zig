@@ -93,3 +93,13 @@ test "format format field extraction" {
     try stdout.print("\n{any}\n", .{variant});
     allocator.free(ad);
 }
+
+test "get genotypes" {
+    var ivcf = VCF.open("tests/test.snpeff.bcf").?;
+    defer ivcf.deinit();
+    _ = ivcf.next().?;
+    var variant = ivcf.next().?;
+    var gts = try variant.genotypes(allocator);
+    try std.testing.expect(gts.gts.len == 8);
+    allocator.free(gts.gts);
+}
