@@ -89,7 +89,7 @@ pub const Variant = struct {
 
     /// the 1-based half-open close position of the variant
     pub fn stop(self: Variant) i64 {
-        return @as(i64, self.start() + @as(i64, hts.variant_rlen(self.c)));
+        return self.start() + @as(i64, hts.variant_rlen(self.c));
     }
 
     /// the string chromosome of the variant.
@@ -116,6 +116,7 @@ pub const Variant = struct {
 
     /// this currently returns only the first filter
     pub fn FILTER(self: Variant) []const u8 {
+        _ = hts.bcf_unpack(self.c, 4);
         if (hts.variant_nflt(self.c) == 0) {
             return "PASS";
         }
@@ -129,10 +130,11 @@ pub const Variant = struct {
 
     /// access float or int (T of i32 or f32) in the info or format field
     /// user is responsible for freeing the returned value.
-    pub fn get(self: Variant, is: InfoOrFmt, comptime T: type, field_name: []const u8, allocator: *std.mem.Allocator) ![]T {
+    pub fn get(self: Variant, iof: InfoOrFmt, comptime T: type, field_name: []const u8, allocator: *std.mem.Allocator) ![]T {
         var c_void_ptr: ?*c_void = null;
 
-        var func = switch (is) {
+        // cfunc is bcf_get_{info,format}_values depending on `iof`.
+        var cfunc = switch (iof) {
             InfoOrFmt.info => blk_info: {
                 _ = hts.bcf_unpack(self.c, hts.BCF_UN_INFO);
                 break :blk_info hts.bcf_get_info_values;
@@ -150,7 +152,7 @@ pub const Variant = struct {
             else => @compileError("only ints (i32, i64) and floats accepted to get()"),
         };
 
-        var ret = func(self.vcf.header.c, self.c, &(field_name[0]), &c_void_ptr, &n, typs[0]);
+        var ret = cfunc(self.vcf.header.c, self.c, &(field_name[0]), &c_void_ptr, &n, typs[0]);
         if (ret < 0) {
             return ret_to_err(ret, field_name);
         }
@@ -198,9 +200,7 @@ pub const VCF = struct {
             return null;
         }
         var h = Header{ .c = hts.bcf_hdr_read(hf.?) };
-        var v = VCF{ .hts = hf.?, .header = h, .fname = path, .variant_c = hts.bcf_init().? };
-
-        return v;
+        return VCF{ .hts = hf.?, .header = h, .fname = path, .variant_c = hts.bcf_init().? };
     }
 
     /// set the number of decompression threads
