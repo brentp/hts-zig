@@ -164,7 +164,7 @@ pub const Genotypes = struct {
                 data[i] += @intCast(i8, val);
                 j += 1;
             }
-            data[i] = @maximum(data[i], -1);
+            data[i] = std.math.max(data[i], -1);
             i += 1;
         }
         return data;
