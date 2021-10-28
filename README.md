@@ -47,12 +47,12 @@ zig build test
 
 # TODO (maybe)
 
-+ [mostly done] Add nice genotypes access methods/structs
-+ Add `vcf.query()` (currently only iteration from start of file is supported,
+- [X] Add nice genotypes access methods/structs
+- [ ] Add `vcf.query()` (currently only iteration from start of file is supported,
   not querying by genomic location.
-+ writing. currently everything is read-only.
-+ other parts of htslib like bam/cram support.
-+ fix ergonomics and think about error and null return types.
+- [ ] writing. currently everything is read-only.
+- [ ] other parts of htslib like bam/cram support.
+- [ ] fix ergonomics and think about error and null return types.
 
 # Why?
 

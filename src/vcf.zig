@@ -152,6 +152,8 @@ pub const Genotypes = struct {
     /// ./. -> -1
     ///  1/1 -> 2
     ///  1/1/1 -> 3
+    ///  0/2 -> 1
+    ///  1/2 -> 2
     pub fn alts(self: Genotypes, allocator: *std.mem.Allocator) ![]i8 {
         var n_samples: i32 = @divTrunc(@intCast(i32, self.gts.len), self.ploidy);
         var data = try allocator.alloc(i8, @intCast(usize, n_samples));
@@ -160,7 +162,7 @@ pub const Genotypes = struct {
             var j: usize = 0;
             data[i] = 0;
             while (j < self.ploidy) {
-                var val = allele_value(self.gts[@intCast(usize, i * @intCast(usize, self.ploidy) + j)]);
+                var val = std.math.min(1, std.math.max(-1, allele_value(self.gts[@intCast(usize, i * @intCast(usize, self.ploidy) + j)])));
                 data[i] += @intCast(i8, val);
                 j += 1;
             }

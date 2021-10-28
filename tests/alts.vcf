@@ -1,0 +1,10 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=AC,Number=1,Type=Integer,Description="Total number of ALT alleles in called genotypes">
+##INFO=<ID=AF,Number=1,Type=Float,Description="allele frequency">
+##INFO=<ID=CSQ,Number=.,Type=String,Description="Consequence type as predicted by VEP. Format: Consequence|Codons|Amino_acids|Gene|SYMBOL|Feature|EXON|PolyPhen|SIFT|Protein_position|BIOTYPE">
+##contig=<ID=1>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA12877	NA12878	NA12879	NA12880	NA12881	NA12882	NA12883	NA12884	NA12885	NA12886	NA12887	NA12888	NA12889	NA12890	NA12891	NA12892	NA12893
+1	13036736	.	T	A,C	180.717	.	AC=20;AF=0.666667;AN=30;CSQ=missense_variant|Tac/Aac|Y/N|ENSG00000204508|PRAMEF22|ENST00000376187|2/3|benign(0.297)|tolerated(0.17)|270/481|protein_coding,intron_variant|||ENSG00000232423|PRAMEF6|ENST00000376192||||-/476|protein_coding	GT	.	0/0	0/1	0/1	0/1	0/0	1/1	1/1	1/1	1/1	1/1	1/1	.	0/0	1/2	0/2	2/2

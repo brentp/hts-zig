@@ -130,3 +130,18 @@ test "get genotypes" {
     allocator.free(gts.gts);
     allocator.free(alts);
 }
+
+test "get genotypes" {
+    var ivcf = VCF.open("tests/alts.vcf").?;
+    defer ivcf.deinit();
+    var variant = ivcf.next().?;
+    var gts = try variant.genotypes(allocator);
+    var alts = try gts.alts(allocator);
+    // 0/0	0/1	0/1	0/1	0/0	1/1	1/1	1/1	1/1	1/1	1/1	.	0/0	1/2	0/2	2/2
+    var expected = [_]i8{ -1, 0, 1, 1, 1, 0, 2, 2, 2, 2, 2, 2, -1, 0, 2, 1, 2 };
+
+    try std.testing.expect(std.mem.eql(i8, alts, expected[0..]));
+
+    allocator.free(gts.gts);
+    allocator.free(alts);
+}
