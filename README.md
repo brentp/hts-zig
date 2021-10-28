@@ -19,29 +19,31 @@ const allocator = std.testing.allocator;
 var vcf = VCF.open("tests/test.snpeff.bcf").?; // can return null
 // this will close the file and cleanup htslib memory at end of scope
 defer vcf.deinit(); 
-var variant = vcf.next().?;
+var variant = vcf.next().?; # .? syntax gets an optional result.
 try stdout.print("\nvariant:{any}\n", .{variant}); // Variant(chr1:30859-30860 (G/C))
 
-// get the AD field
+// # get the AD field
+// # needs to allocate, this interface will likely change.
+// # extract the FORMAT/sample AD field (allelic depth)
+// # to get INFO, use get(InfoOrFmt.info, ...);
 var fld = "AD";
-
-// needs to allocate, this interface will likely change.
-// extract the FORMAT/sample AD field (allelic depth)
-// to get INFO, use get(InfoOrFmt.info, ...);
 var ad = try variant.get(InfoOrFmt.format, i32, fld, allocator);
 // 4 samples * 2
-try std.testing.expect(ad.len == 8);
 try stdout.print("\nAD:{any}\n", .{ad}); // { 7, 0, 2, 0, 6, 0, 4, 0 }
 
+// # genotypes:
+var gts = try variant.genotypes(allocator);
+try stdout.print("\ngts:{any}\n", .{gts});
+# gts:[0/0/, 0/0/, 0/1/, 0/0/] (note trailing is accurate as it's how it's stored in htslib)
 
-// region queries
+// # region queries
 var iter = try ivcf.query(chrom, 69269, 69270);
 while (iter.next()) |v| {
     try std.testing.expect(v.start() == 69269);
 }
 
-// free the memory.
-allocator.free(ad);
+// # free the memory.
+allocator.free(ad); allocator.free(gts);
 ```
 
 # testing and dev
