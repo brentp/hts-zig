@@ -372,6 +372,9 @@ pub const VCF = struct {
         if (self.hts != null and !std.mem.eql(u8, self.fname, "-") and !std.mem.eql(u8, self.fname, "/dev/stdin")) {
             _ = hts.hts_close(self.hts);
         }
+        if (self.idx_c != null) {
+            _ = hts.hts_idx_destroy(self.idx_c);
+        }
     }
 };
 
@@ -392,5 +395,9 @@ pub const RegionIterator = struct {
             return null;
         }
         return self.variant;
+    }
+    // it's not necessary to call this unless iteration is stopped early.
+    pub fn deinit(self: RegionIterator) void {
+        _ = hts.hts_itr_destroy(self.itr);
     }
 };
