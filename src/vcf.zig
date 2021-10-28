@@ -4,6 +4,7 @@
 const std = @import("std");
 const testing = std.testing;
 const stdout = std.io.getStdOut().writer();
+const stderr = std.io.getStdErr().writer();
 
 const hts = @cImport({
     @cInclude("htslib_struct_access.h");
@@ -57,7 +58,6 @@ fn ret_to_err(
         -2 => HTSError.UnexpectedType,
         -1 => HTSError.UndefinedTag,
         else => {
-            const stderr = std.io.getStdErr().writer();
             stderr.print("[zig-hts/vcf] unknown return in info({s})\n", .{attr_name}) catch {};
             return HTSError.UnknownError;
         },
@@ -308,6 +308,7 @@ pub const VCF = struct {
     fname: []const u8,
     header: Header,
     variant_c: ?*hts.bcf1_t,
+    idx_c: ?*hts.hts_idx_t,
 
     /// open a vcf for reading from the given path
     pub fn open(path: []const u8) ?VCF {
@@ -316,7 +317,7 @@ pub const VCF = struct {
             return null;
         }
         var h = Header{ .c = hts.bcf_hdr_read(hf.?) };
-        return VCF{ .hts = hf.?, .header = h, .fname = path, .variant_c = hts.bcf_init().? };
+        return VCF{ .hts = hf.?, .header = h, .fname = path, .variant_c = hts.bcf_init().?, .idx_c = null };
     }
 
     /// set the number of decompression threads
@@ -338,6 +339,29 @@ pub const VCF = struct {
         return Variant{ .c = self.variant_c.?, .vcf = self };
     }
 
+    pub fn query(self: *VCF, chrom: []const u8, start: i32, stop: i32) !RegionIterator {
+        if (self.idx_c == null) {
+            self.idx_c = hts.hts_idx_load(&(self.fname[0]), hts.HTS_FMT_CSI);
+            if (self.idx_c == null) {
+                try stderr.print("[hts-zig/vcf] index not found for {any}\n", .{self.fname});
+                return HTSError.NotFound;
+            }
+        }
+        const tid = hts.bcf_hdr_name2id(self.header.c, &chrom[0]);
+        if (tid == -1) {
+            try stderr.print("[hts-zig/vcf] region {s} not found not found for {s}\n", .{ chrom, self.fname });
+            return HTSError.NotFound;
+        }
+
+        const iter = hts.hts_itr_query(self.idx_c, tid, start, stop, hts.bcf_readrec);
+        if (iter == null) {
+            try stderr.print("[hts-zig/vcf] region {s}:{any}-{any} not found not found for {s}\n", .{ chrom, start + 1, stop, self.fname });
+            return HTSError.NotFound;
+        }
+        return RegionIterator{ .itr = iter.?, .variant = Variant{ .c = self.variant_c.?, .vcf = self.* } };
+    }
+
+    /// call this to cleanup memory used by the underlying C
     pub fn deinit(self: VCF) void {
         if (self.header.c != null) {
             hts.bcf_hdr_destroy(self.header.c.?);
@@ -348,5 +372,25 @@ pub const VCF = struct {
         if (self.hts != null and !std.mem.eql(u8, self.fname, "-") and !std.mem.eql(u8, self.fname, "/dev/stdin")) {
             _ = hts.hts_close(self.hts);
         }
+    }
+};
+
+pub const RegionIterator = struct {
+    itr: *hts.hts_itr_t,
+    variant: Variant,
+
+    pub fn next(self: RegionIterator) ?Variant {
+        const ret = hts.hts_itr_next(hts.fp_bgzf(self.variant.vcf.hts.?), self.itr, self.variant.c, null);
+        if (ret < 0) {
+            hts.hts_itr_destroy(self.itr);
+            return null;
+        }
+        // TODO: check self.variant.c.errorcode
+        _ = hts.bcf_unpack(self.variant.c, 3);
+        if (hts.bcf_subset_format(self.variant.vcf.header.c, self.variant.c) != 0) {
+            stderr.writeAll("[hts-zig/vcf] error with bcf_subset_format\n") catch {};
+            return null;
+        }
+        return self.variant;
     }
 };

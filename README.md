@@ -33,6 +33,13 @@ var ad = try variant.get(InfoOrFmt.format, i32, fld, allocator);
 try std.testing.expect(ad.len == 8);
 try stdout.print("\nAD:{any}\n", .{ad}); // { 7, 0, 2, 0, 6, 0, 4, 0 }
 
+
+// region queries
+var iter = try ivcf.query(chrom, 69269, 69270);
+while (iter.next()) |v| {
+    try std.testing.expect(v.start() == 69269);
+}
+
 // free the memory.
 allocator.free(ad);
 ```
@@ -48,8 +55,7 @@ zig build test
 # TODO (maybe)
 
 - [X] Add nice genotypes access methods/structs
-- [ ] Add `vcf.query()` (currently only iteration from start of file is supported,
-  not querying by genomic location.
+- [X] Add `vcf.query()` (currently only iteration from start of file is supported, not querying by genomic location.
 - [ ] writing. currently everything is read-only.
 - [ ] other parts of htslib like bam/cram support.
 - [ ] fix ergonomics and think about error and null return types.

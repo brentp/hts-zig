@@ -145,3 +145,17 @@ test "get genotypes" {
     allocator.free(gts.gts);
     allocator.free(alts);
 }
+
+test "query" {
+    var ivcf = VCF.open("tests/test.snpeff.bcf").?;
+    defer ivcf.deinit();
+    var chrom: []const u8 = "1";
+    try std.testing.expectError(vcf.HTSError.NotFound, ivcf.query(chrom, 69269, 69270));
+
+    chrom = "chr1";
+    var iter = try ivcf.query(chrom, 69269, 69270);
+
+    while (iter.next()) |v| {
+        try std.testing.expect(v.start() == 69269);
+    }
+}
