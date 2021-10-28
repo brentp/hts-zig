@@ -12,7 +12,6 @@ implemented the rest is fairly mechanical.
 ```zig
 const vcf = @import("src/vcf.zig")
 const VCF = vcf.VCF
-const InfoOrFmt = vcf.InfoOrFmt;
 
 const allocator = std.testing.allocator;
 
@@ -25,9 +24,9 @@ try stdout.print("\nvariant:{any}\n", .{variant}); // Variant(chr1:30859-30860 (
 // # get the AD field
 // # needs to allocate, this interface will likely change.
 // # extract the FORMAT/sample AD field (allelic depth)
-// # to get INFO, use get(InfoOrFmt.info, ...);
+// # to get INFO, use get(vcf.Field.info, ...);
 var fld = "AD";
-var ad = try variant.get(InfoOrFmt.format, i32, fld, allocator);
+var ad = try variant.get(vcf.Field.format, i32, fld, allocator);
 // 4 samples * 2
 try stdout.print("\nAD:{any}\n", .{ad}); // { 7, 0, 2, 0, 6, 0, 4, 0 }
 

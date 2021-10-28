@@ -3,7 +3,7 @@ const std = @import("std");
 const stdout = std.io.getStdOut().writer();
 
 const VCF = vcf.VCF;
-const InfoOrFmt = vcf.InfoOrFmt;
+const Field = vcf.Field;
 
 const fname = "tests/exac.bcf";
 const allocator = std.testing.allocator;
@@ -54,7 +54,7 @@ test "info AC int" {
     defer ivcf.deinit();
     var variant = ivcf.next().?;
     var fld: []const u8 = "AC";
-    var ac = try variant.get(InfoOrFmt.info, i32, fld, allocator);
+    var ac = try variant.get(Field.info, i32, fld, allocator);
     try std.testing.expect(ac.len == 1);
     try std.testing.expect(ac[0] == 3);
     allocator.free(ac);
@@ -65,7 +65,7 @@ test "info AC float" {
     defer ivcf.deinit();
     var variant = ivcf.next().?;
     var fld: []const u8 = "AF";
-    var af = try variant.get(InfoOrFmt.info, f32, fld, allocator);
+    var af = try variant.get(Field.info, f32, fld, allocator);
     try std.testing.expect(af.len == 1);
     try std.testing.expect(af[0] == 6.998e-5);
     allocator.free(af);
@@ -76,7 +76,7 @@ test "missing INFO field gives undefined tag" {
     defer ivcf.deinit();
     var variant = ivcf.next().?;
     var fld: []const u8 = "MISSING_AC";
-    try std.testing.expectError(vcf.HTSError.UndefinedTag, variant.get(InfoOrFmt.info, i32, fld, allocator));
+    try std.testing.expectError(vcf.HTSError.UndefinedTag, variant.get(Field.info, i32, fld, allocator));
 }
 
 test "format format field extraction" {
@@ -85,7 +85,7 @@ test "format format field extraction" {
     _ = ivcf.next().?;
     var variant = ivcf.next().?;
     var fld = "AD";
-    var ad = try variant.get(vcf.InfoOrFmt.format, i32, fld, allocator);
+    var ad = try variant.get(vcf.Field.format, i32, fld, allocator);
     try std.testing.expect(ad.len == 8);
     try std.testing.expect(ad[0] == 7);
     try std.testing.expect(ad[2] == 2);

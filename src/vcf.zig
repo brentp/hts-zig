@@ -65,7 +65,7 @@ fn ret_to_err(
     return retval;
 }
 
-pub const InfoOrFmt = enum {
+pub const Field = enum {
     info,
     format,
 };
@@ -234,16 +234,16 @@ pub const Variant = struct {
 
     /// access float or int (T of i32 or f32) in the info or format field
     /// user is responsible for freeing the returned value.
-    pub fn get(self: Variant, iof: InfoOrFmt, comptime T: type, field_name: []const u8, allocator: *std.mem.Allocator) ![]T {
+    pub fn get(self: Variant, iof: Field, comptime T: type, field_name: []const u8, allocator: *std.mem.Allocator) ![]T {
         var c_void_ptr: ?*c_void = null;
 
         // cfunc is bcf_get_{info,format}_values depending on `iof`.
         var cfunc = switch (iof) {
-            InfoOrFmt.info => blk_info: {
+            Field.info => blk_info: {
                 _ = hts.bcf_unpack(self.c, hts.BCF_UN_INFO);
                 break :blk_info hts.bcf_get_info_values;
             },
-            InfoOrFmt.format => blk_fmt: {
+            Field.format => blk_fmt: {
                 _ = hts.bcf_unpack(self.c, hts.BCF_UN_FMT);
                 break :blk_fmt hts.bcf_get_format_values;
             },
@@ -275,7 +275,7 @@ pub const Variant = struct {
     /// Get the genotypes from the GT field for all samples. This allocates
     //memory that the user is expected to free.
     pub fn genotypes(self: Variant, allocator: *std.mem.Allocator) !Genotypes {
-        const gts = try self.get(InfoOrFmt.format, i32, "GT", allocator);
+        const gts = try self.get(Field.format, i32, "GT", allocator);
         return Genotypes{ .gts = gts, .ploidy = @floatToInt(i32, @intToFloat(f32, gts.len) / @intToFloat(f32, self.n_samples())) };
     }
 
