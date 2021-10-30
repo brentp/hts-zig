@@ -13,9 +13,41 @@ const hts = @cImport({
     @cInclude("htslib/tbx.h");
 });
 
+pub const Field = enum {
+    info,
+    format,
+};
+
 /// This stores the `bcf_hdr_t` and provides convenience mthods.
 pub const Header = struct {
     c: ?*hts.bcf_hdr_t,
+
+    inline fn sync(self: Header) !void {
+        const ret = hts.bcf_hdr_sync(self.c);
+        if (ret != 0) {
+            return ret_to_err(ret, "sync");
+        }
+    }
+    /// add a valid string to the Header. Must contain new-line or have null
+    /// terminator.
+    pub fn add_string(self: Header, str: []const u8) !void {
+        const ret = hts.bcf_hdr_append(self.c, &(str[0]));
+        if (ret != 0) {
+            return ret_to_err(ret, "header.add_string");
+        }
+        return self.sync();
+    }
+
+    pub fn add(self: Header, allocator: *std.mem.Allocator, fld: Field, id: []const u8, number: []const u8, typ: []const u8, description: []const u8) !void {
+        // https://ziglearn.org/chapter-2/#formatting
+        const h = if (fld == Field.info)
+            "INFO"
+        else
+            "FORMAT";
+        const s = try std.fmt.allocPrint(allocator, "##{s}=<ID={s},Number={s},Type={s},Description=\"{s}\">\n", .{ h, id, number, typ, description });
+        defer allocator.free(s);
+        return self.add_string(s);
+    }
 
     pub fn format(self: Header, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
@@ -58,17 +90,12 @@ fn ret_to_err(
         -2 => HTSError.UnexpectedType,
         -1 => HTSError.UndefinedTag,
         else => {
-            stderr.print("[zig-hts/vcf] unknown return in info({s})\n", .{attr_name}) catch {};
+            stderr.print("[zig-hts/vcf] unknown return ({s})\n", .{attr_name}) catch {};
             return HTSError.UnknownError;
         },
     };
     return retval;
 }
-
-pub const Field = enum {
-    info,
-    format,
-};
 
 inline fn allele_value(val: i32) i32 {
     if (val < 0) {

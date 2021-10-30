@@ -159,3 +159,19 @@ test "query" {
         try std.testing.expect(v.start() == 69269);
     }
 }
+
+test "add_to_header" {
+    var ivcf = VCF.open("tests/test.snpeff.bcf").?;
+    defer ivcf.deinit();
+
+    var fld = "ASDFXX";
+    var desc = "added for test";
+    try ivcf.header.add(allocator, Field.info, fld, "1", "Integer", desc);
+    var h = ivcf.header.tostring(allocator);
+    defer allocator.free(h.?);
+
+    try std.testing.expect(std.mem.indexOf(u8, h.?, "ASDFXX") != null);
+    try std.testing.expect(std.mem.indexOf(u8, h.?, "AFXX") == null);
+
+    _ = try ivcf.header.add(allocator, Field.format, "GGGGG", "2", "Float", desc);
+}
