@@ -294,6 +294,33 @@ pub const Variant = struct {
         return data;
     }
 
+    pub fn set(self: Variant, iof: Field, comptime T: type, vals: []T, field_name: []const u8) !void {
+        //, allocator: *std.mem.Allocator) !void {
+
+        // cfunc is bcf_get_{info,format}_values depending on `iof`.
+        var cfunc = switch (iof) {
+            Field.info => blk_info: {
+                _ = hts.bcf_unpack(self.c, hts.BCF_UN_INFO);
+                break :blk_info hts.bcf_update_info;
+            },
+            Field.format => blk_fmt: {
+                _ = hts.bcf_unpack(self.c, hts.BCF_UN_FMT);
+                break :blk_fmt hts.bcf_update_format;
+            },
+        };
+
+        var typs = switch (@typeInfo(T)) {
+            .ComptimeInt, .Int => .{ hts.BCF_HT_INT, i32 },
+            .ComptimeFloat, .Float => .{ hts.BCF_HT_REAL, f32 },
+            else => @compileError("only ints (i32, i64) and floats accepted to get()"),
+        };
+
+        var ret = cfunc(self.vcf.header.c, self.c, &(field_name[0]), &(vals[0]), @intCast(c_int, vals.len), typs[0]);
+        if (ret < 0) {
+            return ret_to_err(ret, field_name);
+        }
+    }
+
     /// number of samples in the variant
     pub inline fn n_samples(self: Variant) i32 {
         return hts.variant_n_samples(self.c);

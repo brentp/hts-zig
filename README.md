@@ -58,7 +58,7 @@ zig build test
 - [X] Add nice genotypes access methods/structs
 - [X] Add `vcf.query()` (currently only iteration from start of file is supported, not querying by genomic location.
 - [X] updating header.
-- [ ] setting INFO fields.
+- [X] setting INFO fields.
 - [ ] writing. currently everything is read-only.
 - [ ] fix ergonomics and think about error and null return types.
 

@@ -175,3 +175,33 @@ test "add_to_header" {
 
     _ = try ivcf.header.add(allocator, Field.format, "GGGGG", "2", "Float", desc);
 }
+
+test "set info" {
+    var ivcf = VCF.open("tests/test.snpeff.bcf").?;
+    defer ivcf.deinit();
+
+    var v = ivcf.next().?;
+    var xa = [3]i32{ 24, 48, 96 };
+    var x: []i32 = xa[0..];
+    var fld = "XFX";
+    var desc = "added for test";
+    try ivcf.header.add(allocator, Field.info, fld, "3", "Integer", desc);
+
+    try v.set(Field.info, i32, x, fld);
+    var s = v.tostring(allocator);
+    try std.testing.expect(s != null);
+    try std.testing.expect(std.mem.indexOf(u8, s.?, "XFX=24,48,96") != null);
+
+    allocator.free(s.?);
+
+    fld = "XFF";
+    var xff = [_]f32{2.0};
+    var xf: []f32 = xff[0..];
+    try ivcf.header.add(allocator, Field.info, fld, "1", "Float", desc);
+
+    try v.set(Field.info, f32, xf, fld);
+    s = v.tostring(allocator);
+    try std.testing.expect(s != null);
+    try std.testing.expect(std.mem.indexOf(u8, s.?, "XFF=2") != null);
+    allocator.free(s.?);
+}
