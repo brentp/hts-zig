@@ -22,6 +22,12 @@ pub const Field = enum {
 pub const Header = struct {
     c: ?*hts.bcf_hdr_t,
 
+    pub fn deinit(self: Header) void {
+        if (self.c != null) {
+            hts.bcf_hdr_destroy(self.c.?);
+        }
+    }
+
     inline fn sync(self: Header) !void {
         const ret = hts.bcf_hdr_sync(self.c);
         if (ret != 0) {
@@ -36,6 +42,20 @@ pub const Header = struct {
             return ret_to_err(ret, "header.add_string");
         }
         return self.sync();
+    }
+
+    pub fn set(self: Header, c: *hts.bcf_hdr_t) void {
+        self.c = c;
+    }
+
+    /// create a new header from a string
+    pub fn from_string(self: *Header, str: []u8) !void {
+        const mode = "w";
+        self.c = hts.bcf_hdr_init(&(mode[0]));
+        var ret = hts.bcf_hdr_parse(self.c, &(str[0]));
+        if (ret != 0) {
+            return ret_to_err(ret, "header.from_string");
+        }
     }
 
     pub fn add(self: Header, allocator: *std.mem.Allocator, fld: Field, id: []const u8, number: []const u8, typ: []const u8, description: []const u8) !void {
@@ -370,6 +390,7 @@ pub const VCF = struct {
     }
 
     /// open a file with the given mode. must use full mode, e.g. wb for writing bcf.
+    /// if opened for writing, the header must be set.
     pub fn open_mode(path: []const u8, mode: []const u8) ?VCF {
         const hf = hts.hts_open(&(path[0]), &(mode[0]));
         if (hf == null) {
@@ -377,7 +398,6 @@ pub const VCF = struct {
         }
 
         var h: Header = if (mode[0] == 'w') Header{ .c = null } else Header{ .c = hts.bcf_hdr_read(hf.?) };
-
         return VCF{ .hts = hf.?, .header = h, .fname = path, .variant_c = hts.bcf_init().?, .idx_c = null };
     }
 

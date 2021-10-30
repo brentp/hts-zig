@@ -205,3 +205,21 @@ test "set info" {
     try std.testing.expect(std.mem.indexOf(u8, s.?, "XFF=2") != null);
     allocator.free(s.?);
 }
+
+test "header fromstring" {
+    var ivcf = VCF.open("tests/test.snpeff.bcf").?;
+    defer ivcf.deinit();
+    var h = ivcf.header.tostring(allocator);
+    defer allocator.free(h.?);
+
+    var hnew = vcf.Header{ .c = null };
+    try hnew.from_string(h.?);
+    defer hnew.deinit();
+
+    var hs = hnew.tostring(allocator);
+    defer allocator.free(hs.?);
+
+    var l = h.?.len;
+
+    try std.testing.expect(std.mem.eql(u8, h.?[100..l], hs.?[100..l]));
+}
