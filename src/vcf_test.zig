@@ -223,3 +223,35 @@ test "header fromstring" {
 
     try std.testing.expect(std.mem.eql(u8, h.?[100..l], hs.?[100..l]));
 }
+
+test "writing bcf" {
+    var ivcf = VCF.open("tests/test.snpeff.bcf").?;
+    defer ivcf.deinit();
+    // need to add to header before copying so that the variant has the header
+    // information available.
+    var fld = "gnomad_popmax_af";
+    try ivcf.header.add(allocator, Field.info, fld, "1", "Float", "AF from gnomad");
+
+    var ovcf = VCF.open_mode("_o.bcf", "wb").?;
+    ovcf.header.set(ivcf.header.c.?);
+    ovcf.write_header();
+
+    var xff = [_]f32{0.1};
+    var xf = xff[0..];
+
+    while (ivcf.next()) |v| {
+        try v.set(Field.info, f32, xf, fld);
+        try ovcf.write_variant(v);
+    }
+
+    ovcf.deinit();
+
+    var rvcf = VCF.open("_o.bcf").?;
+    defer rvcf.deinit();
+
+    while (rvcf.next()) |v| {
+        var af = try v.get(Field.info, f32, fld, allocator);
+        try std.testing.expect(af[0] == 0.1);
+        allocator.free(af);
+    }
+}

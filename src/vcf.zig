@@ -22,9 +22,10 @@ pub const Field = enum {
 pub const Header = struct {
     c: ?*hts.bcf_hdr_t,
 
-    pub fn deinit(self: Header) void {
+    pub fn deinit(self: *Header) void {
         if (self.c != null) {
             hts.bcf_hdr_destroy(self.c.?);
+            self.c = null;
         }
     }
 
@@ -34,6 +35,7 @@ pub const Header = struct {
             return ret_to_err(ret, "sync");
         }
     }
+
     /// add a valid string to the Header. Must contain new-line or have null
     /// terminator.
     pub fn add_string(self: Header, str: []const u8) !void {
@@ -44,8 +46,8 @@ pub const Header = struct {
         return self.sync();
     }
 
-    pub fn set(self: Header, c: *hts.bcf_hdr_t) void {
-        self.c = c;
+    pub fn set(self: *Header, c: *hts.bcf_hdr_t) void {
+        self.c = hts.bcf_hdr_dup(c);
     }
 
     /// create a new header from a string
@@ -401,6 +403,19 @@ pub const VCF = struct {
         return VCF{ .hts = hf.?, .header = h, .fname = path, .variant_c = hts.bcf_init().?, .idx_c = null };
     }
 
+    pub fn write_header(self: VCF) void {
+        _ = hts.bcf_hdr_write(self.hts, self.header.c);
+    }
+
+    /// write the variant to the file.
+    pub fn write_variant(self: VCF, variant: Variant) !void {
+        const ret = hts.bcf_write(self.hts, self.header.c, variant.c);
+        // TODO: handle unknown contig as in hts-nim
+        if (ret < 0) {
+            return ret_to_err(ret, "error writing variant");
+        }
+    }
+
     /// set the number of decompression threads
     pub fn set_threads(self: VCF, threads: i32) void {
         hts.hts_set_threads(self.hts, @as(c_int, threads));
@@ -443,18 +458,22 @@ pub const VCF = struct {
     }
 
     /// call this to cleanup memory used by the underlying C
-    pub fn deinit(self: VCF) void {
+    pub fn deinit(self: *VCF) void {
         if (self.header.c != null) {
             hts.bcf_hdr_destroy(self.header.c.?);
+            self.header.c = null;
         }
         if (self.variant_c != null) {
             hts.bcf_destroy(self.variant_c.?);
+            self.variant_c = null;
         }
         if (self.hts != null and !std.mem.eql(u8, self.fname, "-") and !std.mem.eql(u8, self.fname, "/dev/stdin")) {
             _ = hts.hts_close(self.hts);
+            self.hts = null;
         }
         if (self.idx_c != null) {
             _ = hts.hts_idx_destroy(self.idx_c);
+            self.idx_c = null;
         }
     }
 };
