@@ -366,11 +366,18 @@ pub const VCF = struct {
 
     /// open a vcf for reading from the given path
     pub fn open(path: []const u8) ?VCF {
-        var hf = hts.hts_open(&(path[0]), "r");
+        return VCF.open_mode(path, "r");
+    }
+
+    /// open a file with the given mode. must use full mode, e.g. wb for writing bcf.
+    pub fn open_mode(path: []const u8, mode: []const u8) ?VCF {
+        const hf = hts.hts_open(&(path[0]), &(mode[0]));
         if (hf == null) {
             return null;
         }
-        var h = Header{ .c = hts.bcf_hdr_read(hf.?) };
+
+        var h: Header = if (mode[0] == 'w') Header{ .c = null } else Header{ .c = hts.bcf_hdr_read(hf.?) };
+
         return VCF{ .hts = hf.?, .header = h, .fname = path, .variant_c = hts.bcf_init().?, .idx_c = null };
     }
 
