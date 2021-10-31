@@ -61,6 +61,7 @@ zig build test
 - [X] updating header.
 - [X] setting INFO fields.
 - [X] writing. currently everything is read-only.
+- [X] fewer allocations (pass ArrayList to functions).
 - [ ] fix ergonomics and think about error and null return types.
 
 # Why?
