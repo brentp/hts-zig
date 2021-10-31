@@ -49,12 +49,15 @@ while (iter.next()) |v| {
 # testing and dev
 
 This will require `zig` and `htslib` installed.
-Then the startig point is:
 ```
 zig build test
 ```
+Zig requires very little additional work to wrap a C library, but it is
+currently not able to access struct fields when the struct contains bitfields.
+For this reason, we need to write functions to access fields in many htslib
+structs. Those functions are [here](https://github.com/brentp/hts-zig/blob/main/src/htslib_struct_access.c)
 
-# TODO (maybe)
+# TODO
 
 - [X] Add nice genotypes access methods/structs
 - [X] Add `vcf.query()` (currently only iteration from start of file is supported, not querying by genomic location.
@@ -66,5 +69,5 @@ zig build test
 
 # Why?
 
-I find that it's quite useful to learn a new language by writing something that
+it's quite useful to learn a new language by writing something that
 I'll use every day. zig looks interesting and sane
