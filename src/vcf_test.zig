@@ -277,3 +277,16 @@ test "writing bcf" {
         try std.testing.expect(if32.items[0] == 0.1);
     }
 }
+
+test "set samples" {
+    var ivcf = VCF.open("tests/test.snpeff.bcf").?;
+    defer ivcf.deinit();
+    var asamples = [_][]const u8{ "1094PC0009", "1094PC0012" };
+    var samples = asamples[0..];
+    try ivcf.set_samples(samples, allocator);
+    try std.testing.expect(ivcf.n_samples() == 2);
+
+    while (ivcf.next()) |v| {
+        try std.testing.expect(v.n_samples() == 2);
+    }
+}

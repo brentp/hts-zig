@@ -3,11 +3,12 @@
 # WIP [zig](https://ziglang.org) wrapper for [htslib](htslib.org) parsing of VCFs for genetic variants
 
 I wrote this learning zig so it probably has many non-ziggy usages.
-Much of htslib VCF stuff is *not* supported, but some of the difficult parts are
-implemented the rest is fairly mechanical.
-
+Most of the htslib VCF/Variant stuff is supported.
 
 # Usage
+
+> :warning: `hts-zig` tries to allocate as little as possible, use
+> `.dup()` on a variant if when it's necessary to keep it in memory.
 
 ```zig
 const vcf = @import("src/vcf.zig")
@@ -66,7 +67,7 @@ structs. Those functions are [here](https://github.com/brentp/hts-zig/blob/main/
 - [X] writing. currently everything is read-only.
 - [X] fewer allocations (pass ArrayList to functions).
 - [X] support querying vcf as well as bcf
-- [ ] set_samples().
+- [X] set_samples().
 - [ ] fix ergonomics and think about error and null return types.
 
 # Why?

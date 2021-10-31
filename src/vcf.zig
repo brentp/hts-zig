@@ -225,7 +225,6 @@ pub const Genotypes = struct {
 pub const Variant = struct {
     c: ?*hts.bcf1_t,
     vcf: VCF,
-    c_void_ptr: ?*c_void = null,
 
     // deallocate memory (from htslib) for this variant. only needed if this is
     // a copy of a variant from an iterator.
@@ -236,17 +235,24 @@ pub const Variant = struct {
     }
 
     /// the 0-based start position of the variant
-    pub fn start(self: Variant) i64 {
+    pub inline fn start(self: Variant) i64 {
         return @as(i64, hts.variant_pos(self.c));
     }
 
+    /// create a copy of the variant and underlying pointer.
+    pub fn dup(self: Variant) Variant {
+        var result = Variant{ .c = hts.bcf_dup(self.c), .vcf = self.vcf };
+        _ = hts.bcf_unpack(result.c, 3);
+        return result;
+    }
+
     /// the 1-based half-open close position of the variant
-    pub fn stop(self: Variant) i64 {
+    pub inline fn stop(self: Variant) i64 {
         return self.start() + @as(i64, hts.variant_rlen(self.c));
     }
 
     /// the string chromosome of the variant.
-    pub fn CHROM(self: Variant) []const u8 {
+    pub inline fn CHROM(self: Variant) []const u8 {
         _ = hts.bcf_unpack(self.c, 4);
         var ccr = hts.bcf_hdr_id2name(self.vcf.header.c, hts.variant_rid(self.c));
         return std.mem.sliceTo(ccr, 0);
@@ -277,7 +283,7 @@ pub const Variant = struct {
     }
 
     /// the variant quality
-    pub fn QUAL(self: Variant) f32 {
+    pub inline fn QUAL(self: Variant) f32 {
         return hts.variant_QUAL(self.c);
     }
 
@@ -305,12 +311,12 @@ pub const Variant = struct {
             else => @compileError("only ints (i32, i64) and floats accepted to get()"),
         };
 
-        var ret = cfunc(self.vcf.header.c, self.c, &(field_name[0]), &self.c_void_ptr, &n, typs[0]);
+        var ret = cfunc(self.vcf.header.c, self.c, &(field_name[0]), &self.vcf.c_void_ptr, &n, typs[0]);
         if (ret < 0) {
             return ret_to_err(ret, field_name);
         }
         // typs[1] is i32 or f32
-        var casted = @ptrCast([*c]u8, @alignCast(@alignOf(typs[1]), self.c_void_ptr));
+        var casted = @ptrCast([*c]u8, @alignCast(@alignOf(typs[1]), self.vcf.c_void_ptr));
         try (values.*).resize(@intCast(usize, n));
         @memcpy(@ptrCast([*]u8, &values.items[0]), casted, @intCast(usize, n * @sizeOf(typs[1])));
     }
@@ -383,6 +389,7 @@ pub const VCF = struct {
     variant_c: ?*hts.bcf1_t,
     idx_c: ?*hts.hts_idx_t,
     tbx_c: ?*hts.tbx_t = null,
+    c_void_ptr: ?*c_void = null,
 
     /// open a vcf for reading from the given path
     pub fn open(path: []const u8) ?VCF {
@@ -459,6 +466,22 @@ pub const VCF = struct {
         return RegionIterator{ .tbx_c = self.tbx_c, .itr = iter.?, .variant = Variant{ .c = self.variant_c.?, .vcf = self.* }, .s = hts.kstring_t{ .s = null, .m = 0, .l = 0 } };
     }
 
+    /// set the extracted samples, use null to ignore samples.
+    pub fn set_samples(self: VCF, samples: []const []const u8, allocator: *std.mem.Allocator) !void {
+        if (samples.len == 0) {
+            _ = hts.bcf_hdr_set_samples(self.header.c, null, 0);
+            try self.header.sync();
+            return;
+        }
+        const sample_str = try std.mem.joinZ(allocator, ",", samples);
+        defer allocator.free(sample_str);
+        var ret = hts.bcf_hdr_set_samples(self.header.c, &sample_str[0], 0);
+        if (ret < 0) {
+            try stderr.print("[hts-zig/vcf] error in vcf.set_samples: {d}", .{ret});
+        }
+        try self.header.sync();
+    }
+
     /// call this to cleanup memory used by the underlying C
     pub fn deinit(self: *VCF) void {
         if (self.header.c != null) {
@@ -480,6 +503,10 @@ pub const VCF = struct {
         if (self.tbx_c != null) {
             _ = hts.tbx_destroy(self.tbx_c);
             self.tbx_c = null;
+        }
+        if (self.c_void_ptr != null) {
+            hts.free(self.c_void_ptr);
+            self.c_void_ptr = null;
         }
     }
 };
