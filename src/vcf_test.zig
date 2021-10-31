@@ -99,7 +99,6 @@ test "format format field extraction" {
     defer ad.deinit();
 
     try variant.get(vcf.Field.format, i32, &ad, fld);
-    try stdout.print("\nAD:{any}\n", .{ad});
     try std.testing.expect(ad.items.len == 8);
     try std.testing.expect(ad.items[0] == 7);
     try std.testing.expect(ad.items[2] == 2);

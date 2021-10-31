@@ -3,7 +3,6 @@
 
 const std = @import("std");
 const testing = std.testing;
-const stdout = std.io.getStdOut().writer();
 const stderr = std.io.getStdErr().writer();
 
 const hts = @cImport({
@@ -285,6 +284,7 @@ pub const Variant = struct {
     /// access float or int (T of i32 or f32) in the info or format field
     /// values may be reallocated as needed.
     pub fn get(self: *Variant, iof: Field, comptime T: type, values: *std.ArrayList(T), field_name: []const u8) !void {
+        // need pointer to variant because we use self.c_void_ptr;
 
         // cfunc is bcf_get_{info,format}_values depending on `iof`.
         var cfunc = switch (iof) {
@@ -297,9 +297,6 @@ pub const Variant = struct {
                 break :blk_fmt hts.bcf_get_format_values;
             },
         };
-        // shrinkRetainingCapacity;
-        // appendSlice
-        // resize
 
         var n: c_int = 0;
         var typs = switch (@typeInfo(T)) {
@@ -315,17 +312,10 @@ pub const Variant = struct {
         // typs[1] is i32 or f32
         var casted = @ptrCast([*c]u8, @alignCast(@alignOf(typs[1]), self.c_void_ptr));
         try (values.*).resize(@intCast(usize, n));
-        //if (values.len != n) {
-        //    try stderr.print("realloc:{any}, {any}\n", .{ values.len, n });
-        //    values.* = try allocator.realloc(values.*, @intCast(usize, n));
-        //}
-        //try stderr.print("{any}, {any}\n", .{ values.len, values.*[0] });
         @memcpy(@ptrCast([*]u8, &values.items[0]), casted, @intCast(usize, n * @sizeOf(typs[1])));
-        //return data;
     }
 
     pub fn set(self: Variant, iof: Field, comptime T: type, vals: []T, field_name: []const u8) !void {
-        //, allocator: *std.mem.Allocator) !void {
 
         // cfunc is bcf_get_{info,format}_values depending on `iof`.
         var cfunc = switch (iof) {
