@@ -3,7 +3,6 @@
 
 const std = @import("std");
 const testing = std.testing;
-const stdout = std.io.getStdOut().writer();
 const stderr = std.io.getStdErr().writer();
 
 const hts = @cImport({
@@ -226,6 +225,7 @@ pub const Genotypes = struct {
 pub const Variant = struct {
     c: ?*hts.bcf1_t,
     vcf: VCF,
+    c_void_ptr: ?*c_void = null,
 
     // deallocate memory (from htslib) for this variant. only needed if this is
     // a copy of a variant from an iterator.
@@ -282,9 +282,9 @@ pub const Variant = struct {
     }
 
     /// access float or int (T of i32 or f32) in the info or format field
-    /// user is responsible for freeing the returned value.
-    pub fn get(self: Variant, iof: Field, comptime T: type, field_name: []const u8, allocator: *std.mem.Allocator) ![]T {
-        var c_void_ptr: ?*c_void = null;
+    /// values may be reallocated as needed.
+    pub fn get(self: *Variant, iof: Field, comptime T: type, values: *std.ArrayList(T), field_name: []const u8) !void {
+        // need pointer to variant because we use self.c_void_ptr;
 
         // cfunc is bcf_get_{info,format}_values depending on `iof`.
         var cfunc = switch (iof) {
@@ -305,19 +305,17 @@ pub const Variant = struct {
             else => @compileError("only ints (i32, i64) and floats accepted to get()"),
         };
 
-        var ret = cfunc(self.vcf.header.c, self.c, &(field_name[0]), &c_void_ptr, &n, typs[0]);
+        var ret = cfunc(self.vcf.header.c, self.c, &(field_name[0]), &self.c_void_ptr, &n, typs[0]);
         if (ret < 0) {
             return ret_to_err(ret, field_name);
         }
         // typs[1] is i32 or f32
-        var casted = @ptrCast([*c]u8, @alignCast(@alignOf(typs[1]), c_void_ptr));
-        var data = try allocator.alloc(typs[1], @intCast(usize, n));
-        @memcpy(@ptrCast([*]u8, data), casted, @intCast(usize, n * @sizeOf(typs[1])));
-        return data;
+        var casted = @ptrCast([*c]u8, @alignCast(@alignOf(typs[1]), self.c_void_ptr));
+        try (values.*).resize(@intCast(usize, n));
+        @memcpy(@ptrCast([*]u8, &values.items[0]), casted, @intCast(usize, n * @sizeOf(typs[1])));
     }
 
     pub fn set(self: Variant, iof: Field, comptime T: type, vals: []T, field_name: []const u8) !void {
-        //, allocator: *std.mem.Allocator) !void {
 
         // cfunc is bcf_get_{info,format}_values depending on `iof`.
         var cfunc = switch (iof) {
@@ -348,11 +346,10 @@ pub const Variant = struct {
         return hts.variant_n_samples(self.c);
     }
 
-    /// Get the genotypes from the GT field for all samples. This allocates
-    //memory that the user is expected to free.
-    pub fn genotypes(self: Variant, allocator: *std.mem.Allocator) !Genotypes {
-        const gts = try self.get(Field.format, i32, "GT", allocator);
-        return Genotypes{ .gts = gts, .ploidy = @floatToInt(i32, @intToFloat(f32, gts.len) / @intToFloat(f32, self.n_samples())) };
+    /// Get the genotypes from the GT field for all samples.
+    pub fn genotypes(self: *Variant, gts: *std.ArrayList(i32)) !Genotypes {
+        try self.get(Field.format, i32, gts, "GT");
+        return Genotypes{ .gts = gts.items[0..gts.items.len], .ploidy = @floatToInt(i32, @intToFloat(f32, gts.items.len) / @intToFloat(f32, self.n_samples())) };
     }
 
     pub fn format(self: Variant, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {

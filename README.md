@@ -26,23 +26,24 @@ try stdout.print("\nvariant:{any}\n", .{variant}); // Variant(chr1:30859-30860 (
 // # extract the FORMAT/sample AD field (allelic depth)
 // # to get INFO, use get(vcf.Field.info, ...);
 var fld = "AD";
-var ad = try variant.get(vcf.Field.format, i32, fld, allocator);
+var ads = std.ArrayList(i32).init(allocator)
+defer ads.deinit();
+try variant.get(vcf.Field.format, ads, fld);
 // 4 samples * 2
-try stdout.print("\nAD:{any}\n", .{ad}); // { 7, 0, 2, 0, 6, 0, 4, 0 }
+try stdout.print("\nAD:{any}\n", .{ads.items}); // { 7, 0, 2, 0, 6, 0, 4, 0 }
 
 // # genotypes:
-var gts = try variant.genotypes(allocator);
+var gts_mem = std.ArrayList(i32).init(allocator); // can re-use this for each variant
+defer gts_mem.deinit();
+var gts = try variant.genotypes(&gts_mem);
 try stdout.print("\ngts:{any}\n", .{gts});
-# gts:[0/0/, 0/0/, 0/1/, 0/0/] (note trailing is accurate as it's how it's stored in htslib)
+// # gts:[0/0/, 0/0/, 0/1/, 0/0/] (note trailing / is accurate as it's how it's stored in htslib)
 
 // # region queries
 var iter = try ivcf.query(chrom, 69269, 69270);
 while (iter.next()) |v| {
     try std.testing.expect(v.start() == 69269);
 }
-
-// # free the memory.
-allocator.free(ad); allocator.free(gts);
 ```
 
 # testing and dev
