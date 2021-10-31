@@ -34,6 +34,14 @@ int32_t variant_n_samples(bcf1_t *b) {
 	return b->n_sample;
 }
 
+bool is_vcf(htsFile *hts) {
+	return hts->format.format == vcf;
+}
+
+int32_t variant_errcode(bcf1_t *b) {
+	return (int32_t)b->errcode;
+}
+
 int32_t header_n_samples(bcf_hdr_t *h) {
 	return bcf_hdr_nsamples(h);
 }

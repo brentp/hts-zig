@@ -165,6 +165,7 @@ test "get genotypes" {
 
 test "query" {
     var ivcf = VCF.open("tests/test.snpeff.bcf").?;
+    //var ivcf = VCF.open("tests/x.vcf.gz").?;
     defer ivcf.deinit();
     var chrom: []const u8 = "1";
     try std.testing.expectError(vcf.HTSError.NotFound, ivcf.query(chrom, 69269, 69270));
@@ -172,9 +173,12 @@ test "query" {
     chrom = "chr1";
     var iter = try ivcf.query(chrom, 69269, 69270);
 
+    var i: i32 = 0;
     while (iter.next()) |v| {
+        i += 1;
         try std.testing.expect(v.start() == 69269);
     }
+    try std.testing.expect(i == 1);
 }
 
 test "add_to_header" {

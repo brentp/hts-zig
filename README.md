@@ -65,7 +65,8 @@ structs. Those functions are [here](https://github.com/brentp/hts-zig/blob/main/
 - [X] setting INFO fields.
 - [X] writing. currently everything is read-only.
 - [X] fewer allocations (pass ArrayList to functions).
-- [ ] support querying vcf (currently .query() only works for bcf)
+- [X] support querying vcf as well as bcf
+- [ ] set_samples().
 - [ ] fix ergonomics and think about error and null return types.
 
 # Why?

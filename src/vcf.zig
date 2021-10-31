@@ -382,6 +382,7 @@ pub const VCF = struct {
     header: Header,
     variant_c: ?*hts.bcf1_t,
     idx_c: ?*hts.hts_idx_t,
+    tbx_c: ?*hts.tbx_t = null,
 
     /// open a vcf for reading from the given path
     pub fn open(path: []const u8) ?VCF {
@@ -440,18 +441,22 @@ pub const VCF = struct {
                 return HTSError.NotFound;
             }
         }
+        const isVCF = hts.is_vcf(self.hts);
+        if (self.tbx_c == null and isVCF) {
+            self.tbx_c = hts.tbx_index_load(&(self.fname[0]));
+        }
         const tid = hts.bcf_hdr_name2id(self.header.c, &chrom[0]);
         if (tid == -1) {
             try stderr.print("[hts-zig/vcf] region {s} not found not found for {s}\n", .{ chrom, self.fname });
             return HTSError.NotFound;
         }
 
-        const iter = hts.hts_itr_query(self.idx_c, tid, start, stop, hts.bcf_readrec);
+        const iter = if (isVCF) hts.hts_itr_query(self.idx_c, tid, start, stop, hts.tbx_readrec) else hts.hts_itr_query(self.idx_c, tid, start, stop, hts.bcf_readrec);
         if (iter == null) {
             try stderr.print("[hts-zig/vcf] region {s}:{any}-{any} not found not found for {s}\n", .{ chrom, start + 1, stop, self.fname });
             return HTSError.NotFound;
         }
-        return RegionIterator{ .itr = iter.?, .variant = Variant{ .c = self.variant_c.?, .vcf = self.* } };
+        return RegionIterator{ .tbx_c = self.tbx_c, .itr = iter.?, .variant = Variant{ .c = self.variant_c.?, .vcf = self.* }, .s = hts.kstring_t{ .s = null, .m = 0, .l = 0 } };
     }
 
     /// call this to cleanup memory used by the underlying C
@@ -472,15 +477,29 @@ pub const VCF = struct {
             _ = hts.hts_idx_destroy(self.idx_c);
             self.idx_c = null;
         }
+        if (self.tbx_c != null) {
+            _ = hts.tbx_destroy(self.tbx_c);
+            self.tbx_c = null;
+        }
     }
 };
 
 pub const RegionIterator = struct {
     itr: *hts.hts_itr_t,
     variant: Variant,
+    tbx_c: ?*hts.tbx_t, // if this is is present, it's a vcf
+    s: hts.kstring_t,
 
-    pub fn next(self: RegionIterator) ?Variant {
-        const ret = hts.hts_itr_next(hts.fp_bgzf(self.variant.vcf.hts.?), self.itr, self.variant.c, null);
+    pub fn next(self: *RegionIterator) ?Variant {
+        var ret: c_int = 0;
+        if (self.tbx_c != null) {
+            ret = hts.hts_itr_next(hts.fp_bgzf(self.variant.vcf.hts.?), self.itr, &self.s, self.tbx_c);
+            if (ret > 0) {
+                ret = hts.vcf_parse(&self.s, self.variant.vcf.header.c, self.variant.c);
+            }
+        } else {
+            ret = hts.hts_itr_next(hts.fp_bgzf(self.variant.vcf.hts.?), self.itr, self.variant.c, self.tbx_c);
+        }
         const c = hts.variant_errcode(self.variant.c);
         if (c != 0) {
             stderr.print("[hts/vcf] bcf read error: {d}\n", .{c}) catch {};
@@ -488,17 +507,22 @@ pub const RegionIterator = struct {
 
         if (ret < 0) {
             hts.hts_itr_destroy(self.itr);
+            hts.free(self.s.s);
             return null;
         }
         _ = hts.bcf_unpack(self.variant.c, 3);
-        if (hts.bcf_subset_format(self.variant.vcf.header.c, self.variant.c) != 0) {
-            stderr.writeAll("[hts-zig/vcf] error with bcf_subset_format\n") catch {};
-            return null;
+
+        if (self.tbx_c != null) {
+            if (hts.bcf_subset_format(self.variant.vcf.header.c, self.variant.c) != 0) {
+                stderr.writeAll("[hts-zig/vcf] error with bcf_subset_format\n") catch {};
+                return null;
+            }
         }
         return self.variant;
     }
     // it's not necessary to call this unless iteration is stopped early.
     pub fn deinit(self: RegionIterator) void {
         _ = hts.hts_itr_destroy(self.itr);
+        hts.free(self.s.s);
     }
 };
