@@ -49,6 +49,8 @@ test "that variant attributes work" {
 
     try std.testing.expect(variant.QUAL() == 608.91);
     try std.testing.expect(std.mem.eql(u8, variant.FILTER(), "PASS"));
+
+    try std.testing.expect(std.mem.eql(u8, variant.ID(), "."));
 }
 
 test "info AC int" {

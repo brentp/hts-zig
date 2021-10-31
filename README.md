@@ -17,9 +17,9 @@ const VCF = vcf.VCF
 const allocator = std.testing.allocator;
 
 var vcf = VCF.open("tests/test.snpeff.bcf").?; // can return null
-// this will close the file and cleanup htslib memory at end of scope
+// file and cleanup htslib memory at end of scope
 defer vcf.deinit(); 
-var variant = vcf.next().?; # .? syntax gets an optional result.
+var variant = vcf.next().?; // .? syntax gets an optional result.
 try stdout.print("\nvariant:{any}\n", .{variant}); // Variant(chr1:30859-30860 (G/C))
 
 // # get the AD field

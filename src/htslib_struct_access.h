@@ -21,7 +21,8 @@ bool is_vcf(htsFile * hts);
 
 float variant_QUAL(bcf1_t *b);
 int variant_nflt(bcf1_t *b);
-char *variant_flt0(bcf1_t *b, bcf_hdr_t *h);
+const char *variant_flt0(bcf1_t *b, bcf_hdr_t *h);
+const char *variant_id(bcf1_t *b);
 
 BGZF *fp_bgzf(htsFile *h);
 

@@ -282,6 +282,14 @@ pub const Variant = struct {
         return std.mem.sliceTo(hts.variant_flt0(self.c, self.vcf.header.c), 0);
     }
 
+    /// the variant ID field
+    pub fn ID(self: Variant) []const u8 {
+        _ = hts.bcf_unpack(self.c, 4);
+        // note to self, this sliceTo is how to get []u8 from [*c]u8
+        // expected type '[]const u8', found '[*c]const u8'
+        return std.mem.sliceTo(hts.variant_id(self.c), 0);
+    }
+
     /// the variant quality
     pub inline fn QUAL(self: Variant) f32 {
         return hts.variant_QUAL(self.c);

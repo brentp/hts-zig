@@ -26,8 +26,12 @@ float variant_QUAL(bcf1_t *b) {
 int variant_nflt(bcf1_t *b) {
   return b->d.n_flt;
 }
-char *variant_flt0(bcf1_t *b, bcf_hdr_t *h) {
+const char *variant_flt0(bcf1_t *b, bcf_hdr_t *h) {
   return bcf_hdr_int2id(h, BCF_DT_ID, b->d.flt[0]);
+}
+
+const char *variant_id(bcf1_t *b) {
+  return b->d.id;
 }
 
 int32_t variant_n_samples(bcf1_t *b) {
