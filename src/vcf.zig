@@ -481,11 +481,15 @@ pub const RegionIterator = struct {
 
     pub fn next(self: RegionIterator) ?Variant {
         const ret = hts.hts_itr_next(hts.fp_bgzf(self.variant.vcf.hts.?), self.itr, self.variant.c, null);
+        const c = hts.variant_errcode(self.variant.c);
+        if (c != 0) {
+            stderr.print("[hts/vcf] bcf read error: {d}\n", .{c}) catch {};
+        }
+
         if (ret < 0) {
             hts.hts_itr_destroy(self.itr);
             return null;
         }
-        // TODO: check self.variant.c.errorcode
         _ = hts.bcf_unpack(self.variant.c, 3);
         if (hts.bcf_subset_format(self.variant.vcf.header.c, self.variant.c) != 0) {
             stderr.writeAll("[hts-zig/vcf] error with bcf_subset_format\n") catch {};
