@@ -7,6 +7,8 @@ const Field = vcf.Field;
 
 const fname = "tests/exac.bcf";
 const allocator = std.testing.allocator;
+const Ai32 = std.ArrayList(i32);
+const Af32 = std.ArrayList(f32);
 
 test "that vcf open works" {
     var ivcf = VCF.open(fname);
@@ -54,10 +56,12 @@ test "info AC int" {
     defer ivcf.deinit();
     var variant = ivcf.next().?;
     var fld: []const u8 = "AC";
-    var ac = try variant.get(Field.info, i32, fld, allocator);
-    try std.testing.expect(ac.len == 1);
-    try std.testing.expect(ac[0] == 3);
-    allocator.free(ac);
+    var values = Ai32.init(allocator);
+    defer values.deinit();
+
+    try variant.get(Field.info, i32, &values, fld);
+    try std.testing.expect(values.items.len == 1);
+    try std.testing.expect(values.items[0] == 3);
 }
 
 test "info AC float" {
@@ -65,18 +69,23 @@ test "info AC float" {
     defer ivcf.deinit();
     var variant = ivcf.next().?;
     var fld: []const u8 = "AF";
-    var af = try variant.get(Field.info, f32, fld, allocator);
-    try std.testing.expect(af.len == 1);
-    try std.testing.expect(af[0] == 6.998e-5);
-    allocator.free(af);
+    var values = Af32.init(allocator);
+    defer values.deinit();
+
+    try variant.get(Field.info, f32, &values, fld);
+    try std.testing.expect(values.items.len == 1);
+    try std.testing.expect(values.items[0] == 6.998e-5);
 }
 
 test "missing INFO field gives undefined tag" {
     var ivcf = VCF.open("tests/exac.bcf").?;
     defer ivcf.deinit();
     var variant = ivcf.next().?;
+    var values = Ai32.init(allocator);
+    defer values.deinit();
+
     var fld: []const u8 = "MISSING_AC";
-    try std.testing.expectError(vcf.HTSError.UndefinedTag, variant.get(Field.info, i32, fld, allocator));
+    try std.testing.expectError(vcf.HTSError.UndefinedTag, variant.get(Field.info, i32, &values, fld));
 }
 
 test "format format field extraction" {
@@ -85,13 +94,17 @@ test "format format field extraction" {
     _ = ivcf.next().?;
     var variant = ivcf.next().?;
     var fld = "AD";
-    var ad = try variant.get(vcf.Field.format, i32, fld, allocator);
-    try std.testing.expect(ad.len == 8);
-    try std.testing.expect(ad[0] == 7);
-    try std.testing.expect(ad[2] == 2);
+
+    var ad = Ai32.init(allocator);
+    defer ad.deinit();
+
+    try variant.get(vcf.Field.format, i32, &ad, fld);
     try stdout.print("\nAD:{any}\n", .{ad});
+    try std.testing.expect(ad.items.len == 8);
+    try std.testing.expect(ad.items[0] == 7);
+    try std.testing.expect(ad.items[2] == 2);
+    try stdout.print("\nAD:{any}\n", .{ad.items});
     try stdout.print("\n{any}\n", .{variant});
-    allocator.free(ad);
 }
 
 test "n_samples" {
@@ -108,10 +121,12 @@ test "get genotypes" {
     defer ivcf.deinit();
     _ = ivcf.next().?;
     var variant = ivcf.next().?;
-    var gts = try variant.genotypes(allocator);
+    var gts_mem = Ai32.init(allocator);
+    defer gts_mem.deinit();
+    var gts = try variant.genotypes(&gts_mem);
+    try stdout.print("\n{any}\n", .{gts_mem.items});
     try std.testing.expect(gts.gts.len == 8);
     try std.testing.expect(gts.ploidy == 2);
-    allocator.free(gts.gts);
 }
 
 test "get genotypes" {
@@ -120,29 +135,32 @@ test "get genotypes" {
     _ = ivcf.next().?;
     _ = ivcf.next().?;
     var variant = ivcf.next().?;
-    var gts = try variant.genotypes(allocator);
+    var gts_mem = Ai32.init(allocator);
+    defer gts_mem.deinit();
+
+    var gts = try variant.genotypes(&gts_mem);
 
     try stdout.print("\ngts:{any}\n", .{gts});
     try stdout.print("\ngts.at(2):{any}\n", .{gts.at(2)});
     var alts = try gts.alts(allocator);
     try stdout.print("\nalts:{any}\n", .{alts});
 
-    allocator.free(gts.gts);
+    // TODO: use arraylist for alts
     allocator.free(alts);
 }
-
 test "get genotypes" {
     var ivcf = VCF.open("tests/alts.vcf").?;
     defer ivcf.deinit();
     var variant = ivcf.next().?;
-    var gts = try variant.genotypes(allocator);
+    var gts_mem = Ai32.init(allocator);
+    defer gts_mem.deinit();
+    var gts = try variant.genotypes(&gts_mem);
     var alts = try gts.alts(allocator);
     // 0/0	0/1	0/1	0/1	0/0	1/1	1/1	1/1	1/1	1/1	1/1	.	0/0	1/2	0/2	2/2
     var expected = [_]i8{ -1, 0, 1, 1, 1, 0, 2, 2, 2, 2, 2, 2, -1, 0, 2, 1, 2 };
 
     try std.testing.expect(std.mem.eql(i8, alts, expected[0..]));
 
-    allocator.free(gts.gts);
     allocator.free(alts);
 }
 
@@ -248,10 +266,11 @@ test "writing bcf" {
 
     var rvcf = VCF.open("_o.bcf").?;
     defer rvcf.deinit();
+    var if32 = Af32.init(allocator);
+    defer if32.deinit();
 
-    while (rvcf.next()) |v| {
-        var af = try v.get(Field.info, f32, fld, allocator);
-        try std.testing.expect(af[0] == 0.1);
-        allocator.free(af);
+    while (rvcf.next()) |*v| {
+        try v.get(Field.info, f32, &if32, fld);
+        try std.testing.expect(if32.items[0] == 0.1);
     }
 }
